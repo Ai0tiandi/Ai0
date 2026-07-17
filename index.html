@@ -1,7 +1,151 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>我的第一个网页（动态渲染）</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 24px; background:#f7fafc; color:#111827; }
+    .container{ max-width:800px; margin:0 auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06);}
+    h1{ margin:0 0 8px 0; }
+    p.lead{ margin-top:0; color:#374151; }
+    .controls{ display:flex; gap:8px; margin:12px 0; flex-wrap:wrap;}
+    input[type="text"]{ flex:1; padding:8px; border:1px solid #d1d5db; border-radius:6px; }
+    button{ padding:8px 12px; border-radius:6px; border:0; background:#2563eb; color:#fff; cursor:pointer; }
+    button.secondary{ background:#6b7280; }
+    ul{ padding-left:20px; }
+    li{ margin:8px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .meta{ color:#6b7280; font-size:13px; }
+    .small{ font-size:13px; color:#6b7280; margin-top:6px; }
+  </style>
+</head>
 <body>
-    <h1>这是我的第一个网页</h1>
-    <p>我通过手机在 GitHub 上成功创建并准备部署了！</p>
+  <div class="container" id="app">
+    <!-- 内容由 JS 渲染 -->
+  </div>
+
+  <script>
+    // 多语言文案
+    const I18N = {
+      zh: {
+        title: "这是我的第一个网页",
+        subtitle: "我通过手机在 GitHub 上成功创建并准备部署了！",
+        addPlaceholder: "添加一个条目（例如：第一个想法）",
+        addBtn: "添加",
+        toggleLang: "切换到英文",
+        noItems: "还没有条目。试着添加一个吧！",
+        timePrefix: "当前时间：",
+        delete: "删除"
+      },
+      en: {
+        title: "This is my first webpage",
+        subtitle: "I created and prepared this on GitHub from my phone!",
+        addPlaceholder: "Add an item (e.g. first idea)",
+        addBtn: "Add",
+        toggleLang: "Switch to Chinese",
+        noItems: "No items yet. Try adding one!",
+        timePrefix: "Current time: ",
+        delete: "Delete"
+      }
+    };
+
+    // 状态（可扩展）
+    const state = {
+      lang: localStorage.getItem('lang') || 'zh',
+      items: JSON.parse(localStorage.getItem('items') || '[]')
+    };
+
+    // 保存本地
+    function save() {
+      localStorage.setItem('items', JSON.stringify(state.items));
+      localStorage.setItem('lang', state.lang);
+    }
+
+    // 渲染应用
+    function render() {
+      const t = I18N[state.lang];
+      const app = document.getElementById('app');
+      const now = new Date();
+      const timeStr = now.toLocaleString();
+
+      app.innerHTML = `
+        <h1>${t.title}</h1>
+        <p class="lead">${t.subtitle}</p>
+
+        <div class="controls" id="controls">
+          <input id="newItem" type="text" placeholder="${t.addPlaceholder}" />
+          <button id="addBtn">${t.addBtn}</button>
+          <button id="toggleLang" class="secondary">${t.toggleLang}</button>
+        </div>
+
+        <div class="small">${t.timePrefix} <strong id="now">${timeStr}</strong></div>
+
+        <h3 style="margin-top:18px;">Items</h3>
+        <div id="listRegion"></div>
+      `;
+
+      const listRegion = document.getElementById('listRegion');
+      if (state.items.length === 0) {
+        listRegion.innerHTML = `<p class="meta">${t.noItems}</p>`;
+      } else {
+        listRegion.innerHTML = '<ul>' + state.items.map((it, idx) => `
+          <li>
+            <span>${escapeHtml(it.text)}</span>
+            <span style="display:inline-flex;gap:8px;align-items:center">
+              <span class="meta">${new Date(it.createdAt).toLocaleString()}</span>
+              <button data-idx="${idx}" class="deleteBtn secondary">${t.delete}</button>
+            </span>
+          </li>
+        `).join('') + '</ul>';
+      }
+
+      // 事件绑定
+      document.getElementById('addBtn').onclick = onAdd;
+      document.getElementById('toggleLang').onclick = onToggleLang;
+      document.getElementById('newItem').onkeydown = (e) => { if (e.key === 'Enter') onAdd(); };
+
+      // 删除按钮绑定
+      Array.from(document.getElementsByClassName('deleteBtn')).forEach(btn => {
+        btn.onclick = (e) => {
+          const idx = Number(e.currentTarget.dataset.idx);
+          state.items.splice(idx, 1);
+          save();
+          render();
+        };
+      });
+
+      // 定时更新时间显示（每秒）
+      if (!render._timer) {
+        render._timer = setInterval(() => {
+          const el = document.getElementById('now');
+          if (el) el.textContent = new Date().toLocaleString();
+        }, 1000);
+      }
+    }
+
+    function onAdd() {
+      const input = document.getElementById('newItem');
+      const val = input.value.trim();
+      if (!val) return;
+      state.items.unshift({ text: val, createdAt: new Date().toISOString() });
+      input.value = '';
+      save();
+      render();
+    }
+
+    function onToggleLang() {
+      state.lang = state.lang === 'zh' ? 'en' : 'zh';
+      save();
+      render();
+    }
+
+    // 简单防 XSS 的转义（仅用于展示）
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+
+    // 首次渲染
+    render();
+  </script>
 </body>
 </html>
